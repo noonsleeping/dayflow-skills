@@ -19,7 +19,7 @@ These skills consume the SQLite database produced by **[Dayflow](https://github.
 | Skill | Role | Files |
 |---|---|---|
 | **dayflow-ingest** | Pull Dayflow timeline cards from SQLite into structured daily Markdown notes. Idempotent writes, self-heal across last 7 days, schema drift detection, `--all` bulk backfill. | `SKILL.md` + `ingest.py` |
-| **dayflow-reflect** | AI-powered daily review based on the ingested timeline. 10-category attention classification, focus blocks, signals (rework / context-switching / long blocks). | `SKILL.md` + `compute.py` |
+| **dayflow-reflect** | AI-powered daily review based on the ingested timeline. 10-category attention classification, focus blocks, signals (rework / context-switching / long blocks). Self-heal automatically backfills missing reviews in the last 7 days (v0.5). | `SKILL.md` + `compute.py` |
 
 The two skills are designed to work together: **ingest** writes raw daily notes from Dayflow's SQLite database; **reflect** consumes those notes to produce a structured daily review.
 
@@ -110,9 +110,11 @@ For full automation, register scheduled tasks via Claude Code's `mcp__scheduled-
 
 | Task | Cron | Purpose |
 |---|---|---|
-| `dayflow-ingest-daily` | `30 7 * * *` | Daily ingest of yesterday + self-heal |
-| `dayflow-ingest-verify` | `30 8 * * *` | Verify and re-run if 07:30 missed |
-| `dayflow-reflect-daily` | `0 9 * * *` | Generate yesterday's review |
+| `dayflow-ingest-daily` | `0 9 * * 1-5` | Weekday ingest of yesterday + self-heal last 7 days |
+| `dayflow-ingest-verify` | `15 9 * * 1-5` | Weekday verify, re-run if needed |
+| `dayflow-reflect-daily` | `30 9 * * 1-5` | Weekday review of yesterday + self-heal missing reviews (v0.5) |
+
+**Weekday-only schedule (Mon–Fri)** — designed for users who don't open their computer reliably on weekends. Monday morning's reflect run uses self-heal to backfill any Saturday/Sunday reviews automatically.
 
 ---
 

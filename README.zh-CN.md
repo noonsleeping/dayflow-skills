@@ -19,7 +19,7 @@
 | Skill | 作用 | 文件 |
 |---|---|---|
 | **dayflow-ingest** | 从 Dayflow SQLite 提取 timeline 卡片到结构化日笔记。幂等写入、最近 7 天自我修复、schema 漂移检测、`--all` 批量回填。 | `SKILL.md` + `ingest.py` |
-| **dayflow-reflect** | 基于已提取的 timeline 生成 AI 日复盘。10 类注意力分类、连续工作块识别、信号识别（返工 / 频繁切换 / 长连续块）。 | `SKILL.md` + `compute.py` |
+| **dayflow-reflect** | 基于已提取的 timeline 生成 AI 日复盘。10 类注意力分类、连续工作块识别、信号识别（返工 / 频繁切换 / 长连续块）。Self-heal 自动补齐最近 7 天缺失的 review（v0.5）。 | `SKILL.md` + `compute.py` |
 
 两个 skill 协同工作：**ingest** 把 Dayflow SQLite 数据搬到原始日笔记；**reflect** 消费这些笔记生成结构化日复盘。
 
@@ -110,9 +110,11 @@ skill 由 Claude 驱动——读 daily ingest 文件，按 10 类（内容创作
 
 | 任务 | Cron | 作用 |
 |---|---|---|
-| `dayflow-ingest-daily` | `30 7 * * *` | 每日提取昨天 + self-heal |
-| `dayflow-ingest-verify` | `30 8 * * *` | 校验，必要时重跑 07:30 |
-| `dayflow-reflect-daily` | `0 9 * * *` | 生成昨天的日复盘 |
+| `dayflow-ingest-daily` | `0 9 * * 1-5` | 工作日提取昨天 + self-heal 最近 7 天 |
+| `dayflow-ingest-verify` | `15 9 * * 1-5` | 工作日校验，必要时重跑 |
+| `dayflow-reflect-daily` | `30 9 * * 1-5` | 工作日生成昨天的日复盘 + self-heal 补最近 7 天缺失的 review（v0.5）|
+
+**工作日（周一-周五）调度** —— 适用于周末不一定开机的工作模式。周一早上 reflect 任务通过 self-heal 自动补齐上周六/周日的 review。
 
 ---
 
