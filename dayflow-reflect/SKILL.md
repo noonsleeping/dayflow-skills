@@ -4,14 +4,14 @@ description: 把 04-workflow/dayflow/daily/ 的 timeline 数据加工成日复�
 allowed-tools: Bash Read Write
 ---
 
-# dayflow-reflect Skill (v0.1)
+# dayflow-reflect Skill (v0.5)
 
 把 dayflow timeline（已搬运到 `04-workflow/dayflow/daily/YYYY-MM-DD.md`）加工成日复盘 review 文件。
 
 ## 触发
 
 - 显式 `/dayflow-reflect [YYYY-MM-DD]`，无参数 → 昨天（本地时区）
-- v0.1 不上定时（v0.2 才考虑）
+- 定时：每工作日 09:30（cron `30 9 * * 1-5`）+ self-heal 自动补周末
 
 ## 流程（Claude 执行）
 
@@ -22,6 +22,40 @@ allowed-tools: Bash Read Write
 ```bash
 date -v-1d +%Y-%m-%d   # macOS
 ```
+
+### Step 1.5. Self-heal 扫描（v0.5+）
+
+**仅在无显式日期参数时触发**（即 target=昨天的默认场景）。
+
+跑 target_day 之前，扫描最近 7 天找需要补跑的日期：
+
+```bash
+for i in 1 2 3 4 5 6 7; do
+  D=$(date -v-${i}d +%Y-%m-%d)
+  DAILY="$HOME/linkc-os/04-workflow/dayflow/daily/${D}.md"
+  REVIEW="$HOME/linkc-os/04-workflow/dayflow/reviews/daily/${D}.md"
+  if [ -f "$DAILY" ] && [ ! -f "$REVIEW" ]; then
+    echo "$D"
+  fi
+done
+```
+
+把列出的日期构成 `catchup_list`。
+
+**处理队列**：`[target_day, *catchup_list]`（先跑 target_day，后补旧的）。
+
+对队列中**每个日期**跑一遍 Step 2-7。
+
+规则：
+- `target_day` 永远跑（即使 review 已存在 → 覆盖）
+- `catchup_list` 仅含 review 缺失的日期，避免重复劳动
+- 显式 `/dayflow-reflect YYYY-MM-DD` 时**不触发** self-heal——只处理指定日期
+- 如果 `catchup_list` 为空，行为等同 v0.4 默认（仅跑 target_day）
+
+典型场景（周一开机）：
+- target_day = 周日（昨天）
+- catchup_list = [周五、周六]（daily 存在但 review 缺失）
+- 实际执行：周日 → 周五 → 周六，共生成 3 份 review
 
 ### Step 2. 调 compute.py 拿卡片清单 + 时间结构信号
 
@@ -267,10 +301,11 @@ frontmatter 的 `category_minutes` 即使某类目为 0，也保留字段（值�
 - v0.2 取消 partial → 大空白作为元数据
 - v0.3 10 类分类体系 + 边界规则
 - v0.4 上定时（每日 09:00，dayflow-reflect-daily cron 任务）
+- v0.5 Self-heal 扫最近 7 天补缺失 review + cron 改为工作日 09:30
 
 ## 后续版本
 
-- v0.5 接通 reflect skill（reflect 读 04-workflow/dayflow/reviews/ 作为输入源之一）
-- v0.6 周 / 月度 review（聚合多个 daily review）
-- v0.7 趋势对比（vs 上周同一天 / 本周累计）
-- v0.8 跨源关联（结合 journal、calendar、plaud）
+- v0.6 接通 reflect skill（reflect 读 04-workflow/dayflow/reviews/ 作为输入源之一）
+- v0.7 周 / 月度 review（聚合多个 daily review）
+- v0.8 趋势对比（vs 上周同一天 / 本周累计）
+- v0.9 跨源关联（结合 journal、calendar、plaud）
