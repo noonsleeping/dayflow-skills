@@ -141,7 +141,10 @@ def to_minutes(hhmm: str) -> int:
 
 
 def card_duration_min(c: dict) -> int:
-    return max(0, to_minutes(c["end"]) - to_minutes(c["start"]))
+    d = to_minutes(c["end"]) - to_minutes(c["start"])
+    if d < 0:  # crosses midnight (e.g. 23:52–00:15)
+        d += 24 * 60
+    return d
 
 
 def compute_focus_blocks(cards: list[dict]) -> list[dict]:
